@@ -40,11 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local sqlite database
-/data/*.db
+# sqlite runtime lock files (commit the main .db; these are ephemeral)
 /data/*.db-journal
 /data/*.db-wal
 /data/*.db-shm
-
-# uploaded project documents
-/data/uploads/
