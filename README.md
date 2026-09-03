@@ -40,9 +40,11 @@ Open [http://localhost:3000](http://localhost:3000). A SQLite database is create
 
 Right now the app and its SQLite file run together on one server/process. To make quotations reachable from other computers/devices (true multi-device access), deploy this Next.js app to a host with persistent disk (e.g. a VM, Docker container, or a platform like Railway/Render/Fly.io) and point everyone's browser at that server's URL — the SQLite file on that server becomes the single shared source of truth. If you outgrow SQLite's single-writer model (many concurrent editors), swapping `src/lib/server/quotesRepo.ts` for Postgres (e.g. via `pg` or an ORM) is a contained change since all DB access is isolated behind that one file.
 
+**Hostinger VPS (Node.js):** see [DEPLOY.md](./DEPLOY.md) for clone → build → PM2 → domain proxy steps.
+
 ## Notes
 
 - Quote numbers follow the `Q_MMDDYY###` scheme from the source template (e.g. `Q_0713001`).
 - VAT defaults to 12% and is editable per quote.
 - Each line item's Unit Price defaults to the computed "suggested" selling price (cost × (1 + markup%)) but can be manually overridden — the app tracks actual margin against whatever price is ultimately quoted.
-- Data is stored per-browser in `localStorage`. Clearing site data will reset the app to the seeded sample quote.
+- Data is stored in SQLite at `data/techcentrix.db` on the server (shared by every browser that hits that host).
