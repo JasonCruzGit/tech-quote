@@ -6,50 +6,44 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState, type FormEvent } from "react";
 import { COMPANY } from "@/lib/company";
 
-function LoginForm() {
+function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const oauthError = searchParams.get("error");
-  const oauthMessage =
-    oauthError === "google_not_configured"
-      ? "Gmail sign-in is not configured yet. Ask an admin to set Google OAuth keys."
-      : oauthError === "google_denied"
-        ? "Google sign-in was cancelled."
-        : oauthError === "google_forbidden"
-          ? "That Gmail account is not allowed for this system."
-          : oauthError === "google_email"
-            ? "Your Google account email could not be verified."
-            : oauthError
-              ? "Google sign-in failed. Please try again."
-              : "";
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (password !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setBusy(true);
     try {
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, remember }),
+        body: JSON.stringify({ name, username, password, remember }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error || "Invalid username or password");
+        setError(data.error || "Unable to create account");
         return;
       }
       const next = searchParams.get("next") || "/";
       router.replace(next.startsWith("/") ? next : "/");
       router.refresh();
     } catch {
-      setError("Unable to sign in. Please try again.");
+      setError("Unable to sign up. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -64,6 +58,23 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-5">
+      <div>
+        <label htmlFor="name" className="mb-2 block text-[13px] font-medium text-[#1f2937]">
+          Full name
+        </label>
+        <input
+          id="name"
+          name="name"
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Jane Cruz"
+          className="h-12 w-full rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-[14px] text-[#111827] outline-none transition placeholder:text-[#c0c5ce] focus:border-[#2c3947] focus:ring-4 focus:ring-[#2c3947]/15"
+          required
+          autoFocus
+        />
+      </div>
+
       <div>
         <label htmlFor="username" className="mb-2 block text-[13px] font-medium text-[#1f2937]">
           Username
@@ -86,10 +97,9 @@ function LoginForm() {
             autoComplete="username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="admin"
+            placeholder="janecruz"
             className="h-12 w-full rounded-xl border border-[#e5e7eb] bg-white pr-3.5 pl-10 text-[14px] text-[#111827] outline-none transition placeholder:text-[#c0c5ce] focus:border-[#2c3947] focus:ring-4 focus:ring-[#2c3947]/15"
             required
-            autoFocus
           />
         </div>
       </div>
@@ -122,12 +132,13 @@ function LoginForm() {
             id="password"
             name="password"
             type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder="At least 8 characters"
             className="h-12 w-full rounded-xl border border-[#e5e7eb] bg-white pr-11 pl-10 text-[14px] text-[#111827] outline-none transition placeholder:text-[#c0c5ce] focus:border-[#2c3947] focus:ring-4 focus:ring-[#2c3947]/15"
             required
+            minLength={8}
           />
           <button
             type="button"
@@ -140,6 +151,24 @@ function LoginForm() {
         </div>
       </div>
 
+      <div>
+        <label htmlFor="confirm" className="mb-2 block text-[13px] font-medium text-[#1f2937]">
+          Confirm password
+        </label>
+        <input
+          id="confirm"
+          name="confirm"
+          type={showPassword ? "text" : "password"}
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder="••••••••"
+          className="h-12 w-full rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-[14px] text-[#111827] outline-none transition placeholder:text-[#c0c5ce] focus:border-[#2c3947] focus:ring-4 focus:ring-[#2c3947]/15"
+          required
+          minLength={8}
+        />
+      </div>
+
       <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-[#4b5563]">
         <input
           type="checkbox"
@@ -150,9 +179,9 @@ function LoginForm() {
         Remember me
       </label>
 
-      {error || oauthMessage ? (
+      {error ? (
         <p className="rounded-xl border border-[#fbd3ce] bg-[#fef3f2] px-3.5 py-2.5 text-[13px] font-medium text-[#b42318]">
-          {error || oauthMessage}
+          {error}
         </p>
       ) : null}
 
@@ -161,7 +190,7 @@ function LoginForm() {
         disabled={busy}
         className="flex h-12 w-full items-center justify-center rounded-xl bg-[#15181c] text-[14px] font-semibold text-white transition hover:bg-[#0f1317] disabled:opacity-60"
       >
-        {busy ? "Signing in…" : "Sign in"}
+        {busy ? "Creating account…" : "Sign up"}
       </button>
 
       <div className="relative py-1">
@@ -200,26 +229,18 @@ function LoginForm() {
       </button>
 
       <p className="pt-1 text-center text-[13px] text-[#6b7280]">
-        Don&apos;t have an account?{" "}
-        <Link
-          href={
-            searchParams.get("next")
-              ? `/signup?next=${encodeURIComponent(searchParams.get("next")!)}`
-              : "/signup"
-          }
-          className="font-semibold text-[#15181c] hover:underline"
-        >
-          Sign up
+        Already have an account?{" "}
+        <Link href="/login" className="font-semibold text-[#15181c] hover:underline">
+          Sign in
         </Link>
       </p>
     </form>
   );
 }
 
-export default function LoginPage() {
+export default function SignupPage() {
   return (
     <main className="min-h-screen bg-[#f3f4f6] lg:grid lg:grid-cols-[minmax(0,42%)_minmax(0,58%)]">
-      {/* Left — form */}
       <section className="flex flex-col justify-center px-6 py-10 sm:px-10 lg:px-14 xl:px-20">
         <div className="mx-auto w-full max-w-[400px]">
           <div className="mb-10 flex items-center gap-2.5">
@@ -237,13 +258,13 @@ export default function LoginPage() {
           </div>
 
           <h1 className="mb-8 text-[34px] leading-none font-bold tracking-tight text-[#111827]">
-            Sign in
+            Sign up
           </h1>
 
           <Suspense
             fallback={<div className="h-64 animate-pulse rounded-xl bg-white/70" aria-hidden />}
           >
-            <LoginForm />
+            <SignupForm />
           </Suspense>
 
           <p className="mt-8 text-[12px] text-[#9ca3af]">
@@ -252,10 +273,8 @@ export default function LoginPage() {
         </div>
       </section>
 
-      {/* Right — hero panel */}
       <section className="relative hidden overflow-hidden p-4 lg:block lg:p-5">
         <div className="relative flex h-full min-h-[calc(100vh-2.5rem)] flex-col overflow-hidden rounded-[28px] bg-[#15181c] px-10 py-10 text-white xl:px-14">
-          {/* Watermark logo */}
           <div
             className="pointer-events-none absolute -right-10 -bottom-16 opacity-[0.07]"
             aria-hidden
@@ -290,25 +309,21 @@ export default function LoginPage() {
               Quotation System
             </p>
             <h2 className="mb-4 text-[40px] leading-[1.1] font-bold tracking-tight xl:text-[44px]">
-              Welcome to{" "}
-              <span style={{ color: "#C9A227" }}>Techcentrix</span>
+              Create your{" "}
+              <span style={{ color: "#C9A227" }}>Techcentrix</span> account
             </h2>
             <p className="max-w-md text-[15px] leading-relaxed text-white/70">
-              Prepare, issue, and track client quotations through award — with RFQ,
-              bidding, documentation, and procurement in one place.
-            </p>
-            <p className="mt-5 text-[13px] font-medium text-white/45">
-              {COMPANY.tagline}
+              Join the team workspace to prepare quotations, track RFQs, and keep
+              project documentation in one place.
             </p>
           </div>
 
           <div className="relative z-10 mt-auto rounded-2xl bg-white/10 px-6 py-5 ring-1 ring-white/10 backdrop-blur-sm">
             <p className="mb-1.5 text-[16px] font-semibold text-white">
-              Quotes, projects, and paperwork — connected
+              Built for Techcentrix staff
             </p>
             <p className="max-w-md text-[13px] leading-relaxed text-white/55">
-              From first RFQ to turnover documents, keep every Techcentrix engagement
-              organized and ready for the client.
+              Use a work username or continue with an allowed Gmail account.
             </p>
           </div>
         </div>

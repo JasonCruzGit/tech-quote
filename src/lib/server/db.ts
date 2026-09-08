@@ -107,6 +107,14 @@ db.exec(`
     updatedAt TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name TEXT NOT NULL,
+    passwordHash TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS project_documents (
     id TEXT PRIMARY KEY,
     projectId TEXT NOT NULL,

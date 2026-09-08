@@ -3,7 +3,9 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/server/auth";
 
 const PUBLIC_PATHS = [
   "/login",
+  "/signup",
   "/api/auth/login",
+  "/api/auth/signup",
   "/api/auth/logout",
   "/api/auth/me",
   "/api/auth/google",
@@ -34,7 +36,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isPublic(pathname)) {
-    if (pathname === "/login") {
+    if (pathname === "/login" || pathname === "/signup") {
       const token = request.cookies.get(SESSION_COOKIE)?.value;
       if (await verifySessionToken(token)) {
         return NextResponse.redirect(new URL("/", request.url));
