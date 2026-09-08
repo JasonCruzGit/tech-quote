@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
 import { LogoutIcon } from "@/components/ui/Icons";
+import { useAuth } from "@/lib/authClient";
 
 interface NavLink {
   href: string;
@@ -175,12 +176,17 @@ const GROUPS: NavGroup[] = [
 
 export default function SideNav() {
   const pathname = usePathname() || "/";
-  const router = useRouter();
+  const { logout } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  function handleLogout() {
-    if (!window.confirm("Log out of the quotation system?")) return;
-    router.push("/");
-    router.refresh();
+  async function handleLogout() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch {
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -229,11 +235,16 @@ export default function SideNav() {
       </nav>
 
       <div className="border-t border-[var(--nav-line)] px-3 py-3.5">
-        <button type="button" onClick={handleLogout} className="ui-nav-item w-full">
+        <button
+          type="button"
+          onClick={() => void handleLogout()}
+          disabled={loggingOut}
+          className="ui-nav-item w-full cursor-pointer border-0 bg-transparent text-left disabled:cursor-wait disabled:opacity-60"
+        >
           <span className="ui-nav-icon">
             <LogoutIcon size={16} />
           </span>
-          <span className="truncate">Logout</span>
+          <span className="truncate">{loggingOut ? "Logging out…" : "Logout"}</span>
         </button>
         <p className="mt-2 px-3 text-[10px] text-[#565e69]">
           © {new Date().getFullYear()} Techcentrix Inc.

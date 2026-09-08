@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/lib/authClient";
 
 interface Crumb {
   label: string;
@@ -94,6 +95,14 @@ function formatHeaderDate(d = new Date()) {
 export default function TopBar() {
   const pathname = usePathname() || "/";
   const crumbs = breadcrumbs(pathname);
+  const { user } = useAuth();
+  const displayName = user?.name?.trim() || "Administrator";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("") || "AD";
 
   return (
     <header className="no-print flex h-[52px] shrink-0 items-center justify-between gap-4 border-b border-[var(--line)] bg-[var(--surface)] px-5 md:px-8">
@@ -137,10 +146,10 @@ export default function TopBar() {
         </span>
         <div className="flex items-center gap-2.5 border-l border-[var(--line)] pl-4">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand)] text-[11px] font-bold text-white">
-            AD
+            {initials}
           </span>
           <div className="hidden leading-tight sm:block">
-            <p className="text-xs font-semibold text-[var(--ink-900)]">Administrator</p>
+            <p className="text-xs font-semibold text-[var(--ink-900)]">{displayName}</p>
             <p className="text-[10px] text-[var(--ink-400)]">Techcentrix Inc.</p>
           </div>
         </div>

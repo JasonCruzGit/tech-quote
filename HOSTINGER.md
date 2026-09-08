@@ -30,8 +30,22 @@ You do **not** need an `index.html` upload like Vite/React SPAs. Hostinger runs 
 6. Wait until status is **Running**
 7. Open your domain
 
+## Environment variables (required)
+
+In Hostinger Node.js app settings, add:
+
+| Variable | Example |
+|---|---|
+| `AUTH_USERNAME` | `admin` |
+| `AUTH_PASSWORD` | *(strong password)* |
+| `AUTH_DISPLAY_NAME` | `Administrator` |
+| `AUTH_SECRET` | *(long random string)* |
+
+Without these, defaults are used (`admin` / `techcentrix`) — change them before production use.
+
 ## After deploy
 
+- Sign in at `/login`
 - SQLite lives in `data/techcentrix.db` on the server disk
 - Document uploads go under `data/uploads/`
 - Restart from the app dashboard if the process hangs
