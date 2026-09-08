@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import db from "@/lib/server/db";
+import db, { schedulePersist } from "@/lib/server/db";
 
 export interface DbUser {
   id: string;
@@ -49,6 +49,7 @@ export function createUser(input: {
     `INSERT INTO users (id, username, name, passwordHash, createdAt)
      VALUES (?, ?, ?, ?, ?)`
   ).run(id, username, name, passwordHash, createdAt);
+  schedulePersist();
 
   return { id, username, name, passwordHash, createdAt };
 }

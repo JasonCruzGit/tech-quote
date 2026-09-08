@@ -1,5 +1,5 @@
 import type { Rfq } from "@/lib/types";
-import db from "./db";
+import db, { schedulePersist } from "./db";
 
 interface RfqRow {
   id: string;
@@ -50,6 +50,7 @@ export function insertRfq(rfq: Rfq): Rfq {
       @dateReceived, @deadline, @abc, @modeOfProcurement, @status, @notes,
       @quoteId, @quoteNumber, @createdAt, @updatedAt)`
   ).run(rfq);
+  schedulePersist();
   return rfq;
 }
 
@@ -64,9 +65,12 @@ export function replaceRfq(rfq: Rfq): Rfq | undefined {
        quoteId=@quoteId, quoteNumber=@quoteNumber, updatedAt=@updatedAt
      WHERE id=@id`
   ).run(rfq);
+  schedulePersist();
   return rfq;
 }
 
 export function removeRfq(id: string): boolean {
-  return db.prepare("DELETE FROM rfqs WHERE id = ?").run(id).changes > 0;
+  const changed = db.prepare("DELETE FROM rfqs WHERE id = ?").run(id).changes > 0;
+  if (changed) schedulePersist();
+  return changed;
 }

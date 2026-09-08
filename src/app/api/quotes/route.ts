@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { generateId, generateQuoteNumber } from "@/lib/id";
 import { todayIso } from "@/lib/format";
+import { ensureDbReady, flushPersist } from "@/lib/server/db";
 import { insertQuote, listQuoteNumbers, listQuotes } from "@/lib/server/quotesRepo";
 import type { Quote } from "@/lib/types";
 
 export async function GET() {
+  await ensureDbReady();
   const quotes = listQuotes();
   return NextResponse.json({ quotes });
 }
 
 export async function POST() {
+  await ensureDbReady();
   const now = new Date().toISOString();
   const quote: Quote = {
     id: generateId(),
@@ -31,5 +34,6 @@ export async function POST() {
     updatedAt: now,
   };
   insertQuote(quote);
+  await flushPersist();
   return NextResponse.json({ quote }, { status: 201 });
 }

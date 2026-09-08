@@ -1,7 +1,7 @@
 import { DEFAULT_DOCUMENT_TEMPLATE } from "@/lib/documentTemplate";
 import { generateId } from "@/lib/id";
 import type { ProjectDocument } from "@/lib/types";
-import db from "./db";
+import db, { schedulePersist } from "./db";
 import { deleteDocumentFile } from "./documentFiles";
 
 interface DocumentRow {
@@ -65,6 +65,7 @@ export function insertDocument(doc: ProjectDocument): ProjectDocument {
       @completedDate, @notes, @fileName, @storedName, @mimeType, @fileSize,
       @sortOrder, @createdAt, @updatedAt)`
   ).run(doc);
+  schedulePersist();
   return doc;
 }
 
@@ -78,6 +79,7 @@ export function replaceDocument(doc: ProjectDocument): ProjectDocument | undefin
        mimeType=@mimeType, fileSize=@fileSize, sortOrder=@sortOrder, updatedAt=@updatedAt
      WHERE id=@id`
   ).run(doc);
+  schedulePersist();
   return doc;
 }
 
@@ -85,7 +87,9 @@ export function removeDocument(id: string): boolean {
   const existing = getDocumentById(id);
   if (!existing) return false;
   deleteDocumentFile(existing.projectId, existing.storedName);
-  return db.prepare("DELETE FROM project_documents WHERE id = ?").run(id).changes > 0;
+  const changed = db.prepare("DELETE FROM project_documents WHERE id = ?").run(id).changes > 0;
+  if (changed) schedulePersist();
+  return changed;
 }
 
 export function countDocumentsForProject(projectId: string): number {

@@ -1,5 +1,5 @@
 import type { Bid } from "@/lib/types";
-import db from "./db";
+import db, { schedulePersist } from "./db";
 
 interface BidRow {
   id: string;
@@ -62,6 +62,7 @@ export function insertBid(bid: Bid): Bid {
       @awardedTo, @awardAmount, @notes, @rfqId, @quoteId, @quoteNumber,
       @projectId, @createdAt, @updatedAt)`
   ).run(bidToRow(bid));
+  schedulePersist();
   return bid;
 }
 
@@ -77,9 +78,12 @@ export function replaceBid(bid: Bid): Bid | undefined {
        quoteNumber=@quoteNumber, projectId=@projectId, updatedAt=@updatedAt
      WHERE id=@id`
   ).run(bidToRow(bid));
+  schedulePersist();
   return bid;
 }
 
 export function removeBid(id: string): boolean {
-  return db.prepare("DELETE FROM bids WHERE id = ?").run(id).changes > 0;
+  const changed = db.prepare("DELETE FROM bids WHERE id = ?").run(id).changes > 0;
+  if (changed) schedulePersist();
+  return changed;
 }

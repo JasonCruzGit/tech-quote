@@ -1,5 +1,5 @@
 import type { CatalogItem } from "@/lib/types";
-import db from "./db";
+import db, { schedulePersist } from "./db";
 
 interface CatalogItemRow {
   id: string;
@@ -67,6 +67,7 @@ export function insertCatalogItem(item: CatalogItem): CatalogItem {
      (id, title, specs, inclusions, warranty, unit, supplierCost, markupPct, unitPrice, createdAt, updatedAt)
      VALUES (@id, @title, @specs, @inclusions, @warranty, @unit, @supplierCost, @markupPct, @unitPrice, @createdAt, @updatedAt)`
   ).run(itemToRow(item));
+  schedulePersist();
   return item;
 }
 
@@ -79,10 +80,12 @@ export function replaceCatalogItem(item: CatalogItem): CatalogItem | undefined {
        updatedAt=@updatedAt
      WHERE id=@id`
   ).run(itemToRow(item));
+  schedulePersist();
   return item;
 }
 
 export function removeCatalogItem(id: string): boolean {
   const result = db.prepare("DELETE FROM catalog_items WHERE id = ?").run(id);
+  if (result.changes > 0) schedulePersist();
   return result.changes > 0;
 }

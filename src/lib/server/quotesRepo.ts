@@ -1,6 +1,6 @@
 import { buildSampleQuote } from "@/lib/sampleData";
 import type { Client, Quote } from "@/lib/types";
-import db from "./db";
+import db, { schedulePersist } from "./db";
 
 interface QuoteRow {
   id: string;
@@ -77,6 +77,7 @@ export function insertQuote(quote: Quote): Quote {
     `INSERT INTO quotes (id, quoteNumber, date, status, vatPct, client, items, terms, preparedBy, createdAt, updatedAt)
      VALUES (@id, @quoteNumber, @date, @status, @vatPct, @client, @items, @terms, @preparedBy, @createdAt, @updatedAt)`
   ).run(row);
+  schedulePersist();
   return quote;
 }
 
@@ -89,11 +90,13 @@ export function replaceQuote(quote: Quote): Quote | undefined {
        client=@client, items=@items, terms=@terms, preparedBy=@preparedBy, updatedAt=@updatedAt
      WHERE id=@id`
   ).run(row);
+  schedulePersist();
   return quote;
 }
 
 export function removeQuote(id: string): boolean {
   const result = db.prepare("DELETE FROM quotes WHERE id = ?").run(id);
+  if (result.changes > 0) schedulePersist();
   return result.changes > 0;
 }
 

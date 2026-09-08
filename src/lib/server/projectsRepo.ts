@@ -1,5 +1,5 @@
 import type { Project } from "@/lib/types";
-import db from "./db";
+import db, { schedulePersist } from "./db";
 
 interface ProjectRow {
   id: string;
@@ -62,6 +62,7 @@ export function insertProject(project: Project): Project {
      (id, name, clientName, clientOffice, description, status, progressPct, startDate, targetDate, quoteId, quoteNumber, createdAt, updatedAt)
      VALUES (@id, @name, @clientName, @clientOffice, @description, @status, @progressPct, @startDate, @targetDate, @quoteId, @quoteNumber, @createdAt, @updatedAt)`
   ).run(project);
+  schedulePersist();
   return project;
 }
 
@@ -75,10 +76,12 @@ export function replaceProject(project: Project): Project | undefined {
        quoteId=@quoteId, quoteNumber=@quoteNumber, updatedAt=@updatedAt
      WHERE id=@id`
   ).run(project);
+  schedulePersist();
   return project;
 }
 
 export function removeProject(id: string): boolean {
   const result = db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+  if (result.changes > 0) schedulePersist();
   return result.changes > 0;
 }
