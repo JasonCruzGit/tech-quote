@@ -47,7 +47,18 @@ export async function POST(request: Request) {
     );
   }
 
-  if (findUserByUsername(username)) {
+  let existing: ReturnType<typeof findUserByUsername> = null;
+  try {
+    existing = findUserByUsername(username);
+  } catch (err) {
+    console.error("[signup] lookup failed", err);
+    return NextResponse.json(
+      { error: "Database unavailable. Please try again in a moment." },
+      { status: 503 }
+    );
+  }
+
+  if (existing) {
     return NextResponse.json(
       { error: "That username is already taken." },
       { status: 409 }
@@ -71,9 +82,19 @@ export async function POST(request: Request) {
       sessionCookieOptions(days * 24 * 60 * 60)
     );
     return res;
-  } catch {
+  } catch (err) {
+    console.error("[signup] create failed", err);
+    const message = err instanceof Error ? err.message : "";
+    const readonly =
+      /readonly|read-only|EROFS|SQLITE_READONLY/i.test(message) ||
+      (typeof (err as { code?: string })?.code === "string" &&
+        /READONLY|EROFS/i.test((err as { code: string }).code));
     return NextResponse.json(
-      { error: "Unable to create account. Please try again." },
+      {
+        error: readonly
+          ? "Account storage is not writable in this environment."
+          : "Unable to create account. Please try again.",
+      },
       { status: 500 }
     );
   }

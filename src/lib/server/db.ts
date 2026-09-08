@@ -2,23 +2,34 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const dataDir = path.join(process.cwd(), "data");
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const seedDir = path.join(process.cwd(), "data");
+const dataDir = isServerless ? path.join("/tmp", "techcentrix-data") : seedDir;
+const dbPath = path.join(dataDir, "techcentrix.db");
+const seedDbPath = path.join(seedDir, "techcentrix.db");
+
+function ensureWritableDatabase() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  // On Vercel the deploy bundle is read-only; copy the seed DB into /tmp once.
+  if (!fs.existsSync(dbPath) && fs.existsSync(seedDbPath)) {
+    fs.copyFileSync(seedDbPath, dbPath);
+  }
 }
 
-const dbPath = path.join(dataDir, "techcentrix.db");
+ensureWritableDatabase();
 
 declare global {
   var __techcentrixDb: Database.Database | undefined;
 }
 
 const db = globalThis.__techcentrixDb ?? new Database(dbPath);
-if (process.env.NODE_ENV !== "production") {
-  globalThis.__techcentrixDb = db;
-}
+globalThis.__techcentrixDb = db;
 
-db.pragma("journal_mode = WAL");
+// WAL needs sibling -wal/-shm files; DELETE is more reliable on serverless /tmp.
+db.pragma(isServerless ? "journal_mode = DELETE" : "journal_mode = WAL");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS quotes (
