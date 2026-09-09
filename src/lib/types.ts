@@ -9,7 +9,7 @@ export interface Client {
 export interface LineItem {
   id: string;
   title: string; // bold item title, e.g. "ADVANCE DRONE WITH PERIPHERALS"
-  specs: string[]; // bullet spec lines (supports "Label:" sub-headers as plain lines)
+  specs: string[]; // bullet lines; inline **bold** and *italic* supported
   inclusions: string[]; // bullet lines under INCLUSION:
   warranty: string; // e.g. "at least 1 Year Warranty"
   qty: number;

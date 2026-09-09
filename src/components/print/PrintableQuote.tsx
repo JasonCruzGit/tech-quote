@@ -1,6 +1,7 @@
 import { computeQuoteTotals, lineTotalPrice } from "@/lib/calc";
 import { COMPANY, PRINT_GOLD } from "@/lib/company";
 import { formatCurrency, formatDateLong } from "@/lib/format";
+import { RichText } from "@/lib/richText";
 import type { LineItem, Quote } from "@/lib/types";
 
 interface PrintableQuoteProps {
@@ -54,7 +55,7 @@ function ItemBody({ item, index }: { item: LineItem; index: number }) {
             return (
               <li key={i} className={isSubHeader ? "mt-0.5 font-semibold text-[#111827]" : ""}>
                 {!isSubHeader ? <span className="mr-1 text-[#9ca3af]">•</span> : null}
-                {spec}
+                <RichText text={spec} />
               </li>
             );
           })}
@@ -67,7 +68,7 @@ function ItemBody({ item, index }: { item: LineItem; index: number }) {
             {item.inclusions.map((inc, i) => (
               <li key={i}>
                 <span className="mr-1 text-[#9ca3af]">•</span>
-                {inc}
+                <RichText text={inc} />
               </li>
             ))}
           </ul>
