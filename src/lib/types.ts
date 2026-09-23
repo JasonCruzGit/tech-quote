@@ -1,3 +1,18 @@
+export const USER_ROLES = ["Staff", "Manager", "Admin", "Quoting Specialist"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+/** Safe user shape for Manage Users UI / API (never includes passwordHash). */
+export interface PublicUser {
+  id: string;
+  username: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  /** Env-based admin account — not stored in the users table */
+  source: "database" | "env";
+}
+
 export type QuoteStatus = "Draft" | "Sent" | "Approved" | "Won";
 
 export interface Client {

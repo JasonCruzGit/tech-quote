@@ -124,6 +124,10 @@ function runMigrations(database: Database.Database) {
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     name TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    phone TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT 'Staff',
     passwordHash TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
@@ -194,6 +198,23 @@ function runMigrations(database: Database.Database) {
   }
   if (!documentColumnNames.has("fileSize")) {
     database.exec("ALTER TABLE project_documents ADD COLUMN fileSize INTEGER NOT NULL DEFAULT 0");
+  }
+
+  const userColumns = database
+    .prepare("PRAGMA table_info(users)")
+    .all() as Array<{ name: string }>;
+  const userColumnNames = new Set(userColumns.map((c) => c.name));
+  if (!userColumnNames.has("email")) {
+    database.exec("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''");
+  }
+  if (!userColumnNames.has("title")) {
+    database.exec("ALTER TABLE users ADD COLUMN title TEXT NOT NULL DEFAULT ''");
+  }
+  if (!userColumnNames.has("phone")) {
+    database.exec("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
+  }
+  if (!userColumnNames.has("role")) {
+    database.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'Staff'");
   }
 }
 

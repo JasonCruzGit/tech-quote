@@ -156,6 +156,26 @@ const GROUPS: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        href: "/company/users",
+        label: "Manage Users",
+        match: (path) => path.startsWith("/company/users"),
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="M8 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"
+              stroke="currentColor"
+              strokeWidth="1.3"
+            />
+            <path
+              d="M3.5 13.2c.6-2 2.3-3.2 4.5-3.2s3.9 1.2 4.5 3.2"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          </svg>
+        ),
+      },
     ],
   },
   {
