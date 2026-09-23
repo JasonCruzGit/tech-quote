@@ -228,6 +228,69 @@ function mergeQuoteRow(
   return next;
 }
 
+/** Column headers for quotation CSV export / import template (round-trip safe). */
+export const QUOTE_IMPORT_HEADERS = [
+  "Quotation No",
+  "Customer Name",
+  "Office",
+  "Address",
+  "Date",
+  "Status",
+  "Prepared By",
+  "Prepared By Title",
+  "Item",
+  "Qty",
+  "Unit",
+  "Unit Price",
+  "Supplier Cost",
+  "Markup Pct",
+  "Specs",
+  "Inclusions",
+  "Warranty",
+] as const;
+
+export function downloadCsv(filename: string, headers: readonly string[], rows: string[][]) {
+  const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+  const lines = [
+    headers.map((h) => escape(h)).join(","),
+    ...rows.map((row) => row.map((cell) => escape(cell)).join(",")),
+  ];
+  // BOM so Excel opens UTF-8 correctly (₱, names, etc.)
+  const csv = `\uFEFF${lines.join("\n")}`;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/** Blank template with one example row for Excel/CSV import. */
+export function downloadQuoteImportTemplate() {
+  downloadCsv("quotation-import-template.csv", QUOTE_IMPORT_HEADERS, [
+    [
+      "Q_0000001",
+      "Juan Dela Cruz",
+      "MDRRMO Sample",
+      "Sample City",
+      new Date().toISOString().slice(0, 10),
+      "Draft",
+      "Prepared Name",
+      "Sales",
+      "SAMPLE ITEM",
+      "1",
+      "unit",
+      "100000",
+      "50000",
+      "30",
+      "Spec line 1\nSpec line 2",
+      "1x Accessory",
+      "1 Year Warranty",
+    ],
+  ]);
+}
+
 /** Reads the first worksheet of an Excel/CSV file into import rows. */
 export async function parseQuoteSpreadsheet(file: File): Promise<QuoteImportRow[]> {
   const XLSX = await import("xlsx");

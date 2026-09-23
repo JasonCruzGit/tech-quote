@@ -1,4 +1,4 @@
-import { computeQuoteTotals, lineTotalPrice } from "@/lib/calc";
+import { computeQuoteTotals, effectiveUnitPrice, lineTotalPrice } from "@/lib/calc";
 import { COMPANY, PRINT_GOLD } from "@/lib/company";
 import { formatCurrency, formatDateLong } from "@/lib/format";
 import { RichText } from "@/lib/richText";
@@ -40,11 +40,11 @@ function ContactIcon({ kind }: { kind: "pin" | "phone" | "mail" }) {
   );
 }
 
-function ItemBody({ item, index }: { item: LineItem; index: number }) {
+function ItemBody({ item }: { item: LineItem }) {
   return (
     <>
       <div className="mb-0.5 text-[10.5px] leading-tight font-bold text-black">
-        {index + 1}. {item.title.trim() || "Untitled item"}
+        {item.title.trim() || "Untitled item"}
       </div>
       {item.specs.length > 0 && (
         <ul className="space-y-px text-[9px] leading-snug text-[#374151]">
@@ -61,14 +61,16 @@ function ItemBody({ item, index }: { item: LineItem; index: number }) {
           })}
         </ul>
       )}
-      {item.inclusions.length > 0 && (
+      {item.inclusions.some((inc) => inc.label.trim()) && (
         <div className="mt-0.5 text-[9px] leading-snug text-[#374151]">
           <div className="font-semibold text-[#111827]">Inclusion:</div>
           <ul className="space-y-px">
-            {item.inclusions.map((inc, i) => (
+            {item.inclusions
+              .filter((inc) => inc.label.trim())
+              .map((inc, i) => (
               <li key={i}>
                 <span className="mr-1 text-[#9ca3af]">•</span>
-                <RichText text={inc} />
+                <RichText text={inc.label} />
               </li>
             ))}
           </ul>
@@ -96,7 +98,7 @@ export default function PrintableQuote({ quote }: PrintableQuoteProps) {
   ].filter(Boolean) as string[];
 
   return (
-    <article className="tq-print-sheet print-page mx-auto w-full max-w-[210mm] bg-white px-7 pt-5 pb-5 text-[11px] text-[#111827] shadow-[0_12px_40px_rgba(0,0,0,0.12)] print:max-w-none print:shadow-none">
+    <article className="tq-print-sheet print-page mx-auto w-full max-w-[210mm] bg-white px-7 pt-5 pb-5 text-[11px] text-[#111827] shadow-[0_12px_40px_rgba(0,0,0,0.12)] print:max-w-none print:px-0 print:py-0 print:shadow-none">
       {/* Header — logo left, name + stacked contacts right */}
       <header className="mb-3 flex items-start gap-3 border-b border-[#e5e7eb] pb-2.5">
         <div className="flex h-[58px] w-[58px] shrink-0 items-center justify-center bg-black p-[3px]">
@@ -196,7 +198,7 @@ export default function PrintableQuote({ quote }: PrintableQuoteProps) {
                 {String(index + 1).padStart(2, "0")}
               </td>
               <td className="px-1.5 py-1.5">
-                <ItemBody item={item} index={index} />
+                <ItemBody item={item} />
               </td>
               <td className="px-1.5 py-1.5 text-center text-[10px] tabular-nums text-[#374151]">
                 {item.qty}
@@ -205,7 +207,7 @@ export default function PrintableQuote({ quote }: PrintableQuoteProps) {
                 {item.unit.trim() || "—"}
               </td>
               <td className="px-1.5 py-1.5 text-right text-[10px] tabular-nums text-[#374151]">
-                {formatCurrency(item.unitPrice, false)}
+                {formatCurrency(effectiveUnitPrice(item), false)}
               </td>
               <td className="px-1.5 py-1.5 text-right text-[10px] font-semibold tabular-nums text-black">
                 {formatCurrency(lineTotalPrice(item), false)}

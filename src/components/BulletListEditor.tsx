@@ -9,7 +9,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { PlusIcon } from "@/components/ui/Icons";
-import { wrapMarkdownSelection } from "@/lib/richText";
+import { htmlToMarkdown, markdownToHtml } from "@/lib/richText";
 
 interface BulletListEditorProps {
   items: string[];
@@ -23,45 +23,51 @@ interface ContextMenuState {
   index: number;
   x: number;
   y: number;
-  selectionStart: number;
-  selectionEnd: number;
+  range: Range | null;
 }
 
-function AutoTextarea({
+function RichLine({
   value,
   onChange,
   placeholder,
   compact,
   autoFocus,
-  textareaRef,
+  lineRef,
   onContextMenu,
-  onKeyDown,
+  onFormatShortcut,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   compact?: boolean;
   autoFocus?: boolean;
-  textareaRef?: (el: HTMLTextAreaElement | null) => void;
-  onContextMenu?: (e: ReactMouseEvent<HTMLTextAreaElement>) => void;
-  onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
+  lineRef?: (el: HTMLDivElement | null) => void;
+  onContextMenu?: (e: ReactMouseEvent<HTMLDivElement>) => void;
+  onFormatShortcut?: (command: "bold" | "italic") => void;
 }) {
-  const localRef = useRef<HTMLTextAreaElement | null>(null);
+  const localRef = useRef<HTMLDivElement | null>(null);
+  const lastEmitted = useRef(value);
 
-  function setRefs(el: HTMLTextAreaElement | null) {
+  function setRefs(el: HTMLDivElement | null) {
     localRef.current = el;
-    textareaRef?.(el);
-  }
-
-  function resize() {
-    const el = localRef.current;
-    if (!el) return;
-    el.style.height = "0px";
-    el.style.height = `${el.scrollHeight}px`;
+    lineRef?.(el);
   }
 
   useLayoutEffect(() => {
-    resize();
+    const el = localRef.current;
+    if (!el) return;
+    if (value === lastEmitted.current) return;
+    el.innerHTML = markdownToHtml(value);
+    lastEmitted.current = value;
+  }, [value]);
+
+  useLayoutEffect(() => {
+    const el = localRef.current;
+    if (!el) return;
+    if (!el.innerHTML && value) {
+      el.innerHTML = markdownToHtml(value);
+      lastEmitted.current = value;
+    }
   }, [value]);
 
   useLayoutEffect(() => {
@@ -69,24 +75,65 @@ function AutoTextarea({
     const el = localRef.current;
     if (!el) return;
     el.focus();
-    const len = el.value.length;
-    el.setSelectionRange(len, len);
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
   }, [autoFocus]);
 
+  function emitFromDom() {
+    const el = localRef.current;
+    if (!el) return;
+    const next = htmlToMarkdown(el.innerHTML);
+    const isEmpty = !next.trim() && !el.textContent?.trim();
+    el.dataset.empty = isEmpty ? "true" : "false";
+    lastEmitted.current = next;
+    onChange(next);
+  }
+
+  useLayoutEffect(() => {
+    const el = localRef.current;
+    if (!el) return;
+    const isEmpty = !value.trim();
+    el.dataset.empty = isEmpty ? "true" : "false";
+  }, [value]);
+
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    const meta = e.metaKey || e.ctrlKey;
+    if (!meta) return;
+    const key = e.key.toLowerCase();
+    if (key === "b") {
+      e.preventDefault();
+      document.execCommand("bold");
+      emitFromDom();
+      onFormatShortcut?.("bold");
+    } else if (key === "i") {
+      e.preventDefault();
+      document.execCommand("italic");
+      emitFromDom();
+      onFormatShortcut?.("italic");
+    }
+  }
+
   return (
-    <textarea
+    <div
       ref={setRefs}
-      value={value}
-      rows={1}
-      onChange={(e) => onChange(e.target.value)}
-      onInput={resize}
+      role="textbox"
+      aria-multiline="false"
+      contentEditable
+      suppressContentEditableWarning
+      data-placeholder={placeholder}
+      onInput={emitFromDom}
+      onBlur={emitFromDom}
+      onKeyDown={handleKeyDown}
       onContextMenu={onContextMenu}
-      onKeyDown={onKeyDown}
-      placeholder={placeholder}
       className={
         compact
-          ? "min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-1 text-sm leading-snug text-[var(--ink-800)] placeholder:text-[var(--ink-300)] focus:outline-none"
-          : "ui-textarea min-w-0 flex-1"
+          ? "rich-line min-w-0 flex-1 px-0 py-1 text-sm leading-snug text-[var(--ink-800)] outline-none"
+          : "rich-line ui-textarea min-w-0 flex-1"
       }
     />
   );
@@ -102,7 +149,7 @@ export default function BulletListEditor({
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const rowRefs = useRef<Array<HTMLTextAreaElement | null>>([]);
+  const rowRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   useEffect(() => {
     if (focusIndex === null) return;
@@ -158,47 +205,37 @@ export default function BulletListEditor({
     setMenu(null);
   }
 
-  function applyFormat(
-    index: number,
-    marker: "**" | "*",
-    selection?: { start: number; end: number }
-  ) {
+  function applyVisualFormat(index: number, command: "bold" | "italic", range?: Range | null) {
     const el = rowRefs.current[index];
-    const value = items[index] ?? "";
-    const start = selection?.start ?? el?.selectionStart ?? value.length;
-    const end = selection?.end ?? el?.selectionEnd ?? value.length;
-    const result = wrapMarkdownSelection(value, start, end, marker);
-    updateLine(index, result.value);
-    setMenu(null);
-    requestAnimationFrame(() => {
-      const target = rowRefs.current[index];
-      if (!target) return;
-      target.focus();
-      target.setSelectionRange(result.selectionStart, result.selectionEnd);
-    });
-  }
-
-  function handleLineKeyDown(index: number, e: KeyboardEvent<HTMLTextAreaElement>) {
-    const meta = e.metaKey || e.ctrlKey;
-    if (!meta) return;
-    if (e.key.toLowerCase() === "b") {
-      e.preventDefault();
-      applyFormat(index, "**");
-    } else if (e.key.toLowerCase() === "i") {
-      e.preventDefault();
-      applyFormat(index, "*");
+    if (!el) return;
+    el.focus();
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      if (range) {
+        selection.addRange(range);
+      } else if (selection.rangeCount === 0) {
+        const fallback = document.createRange();
+        fallback.selectNodeContents(el);
+        selection.addRange(fallback);
+      }
     }
+    document.execCommand(command);
+    const next = htmlToMarkdown(el.innerHTML);
+    updateLine(index, next);
+    setMenu(null);
   }
 
   function openContextMenu(index: number, e: ReactMouseEvent) {
     e.preventDefault();
-    const el = rowRefs.current[index];
+    const selection = window.getSelection();
+    const range =
+      selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
     setMenu({
       index,
       x: e.clientX,
       y: e.clientY,
-      selectionStart: el?.selectionStart ?? 0,
-      selectionEnd: el?.selectionEnd ?? 0,
+      range,
     });
   }
 
@@ -235,17 +272,16 @@ export default function BulletListEditor({
             >
               ●
             </span>
-            <AutoTextarea
+            <RichLine
               value={line}
               onChange={(value) => updateLine(i, value)}
               placeholder={placeholder}
               compact={compact}
               autoFocus={focusIndex === i}
-              textareaRef={(el) => {
+              lineRef={(el) => {
                 rowRefs.current[i] = el;
               }}
               onContextMenu={(e) => openContextMenu(i, e)}
-              onKeyDown={(e) => handleLineKeyDown(i, e)}
             />
             <div
               className={`flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 ${
@@ -254,7 +290,8 @@ export default function BulletListEditor({
             >
               <button
                 type="button"
-                onClick={() => applyFormat(i, "**")}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyVisualFormat(i, "bold")}
                 className={`ui-icon-btn ${compact ? "!h-6 !w-6 text-[11px] font-bold" : "text-xs font-bold"}`}
                 aria-label="Bold"
                 title="Bold (⌘B)"
@@ -263,7 +300,8 @@ export default function BulletListEditor({
               </button>
               <button
                 type="button"
-                onClick={() => applyFormat(i, "*")}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyVisualFormat(i, "italic")}
                 className={`ui-icon-btn ${compact ? "!h-6 !w-6 text-[11px] italic" : "text-xs italic"}`}
                 aria-label="Italic"
                 title="Italic (⌘I)"
@@ -303,7 +341,7 @@ export default function BulletListEditor({
           {addLabel}
         </button>
         <p className="text-[10px] text-[var(--ink-400)]">
-          Right-click to insert · ⌘B / ⌘I to format
+          Select text · ⌘B bold · ⌘I italic
         </p>
       </div>
 
@@ -338,27 +376,19 @@ export default function BulletListEditor({
             type="button"
             role="menuitem"
             className="flex w-full px-3 py-1.5 text-left text-[13px] text-[var(--ink-800)] hover:bg-[var(--surface-sub)]"
-            onClick={() =>
-              applyFormat(menu.index, "**", {
-                start: menu.selectionStart,
-                end: menu.selectionEnd,
-              })
-            }
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyVisualFormat(menu.index, "bold", menu.range)}
           >
-            Bold selection
+            Bold
           </button>
           <button
             type="button"
             role="menuitem"
             className="flex w-full px-3 py-1.5 text-left text-[13px] text-[var(--ink-800)] hover:bg-[var(--surface-sub)]"
-            onClick={() =>
-              applyFormat(menu.index, "*", {
-                start: menu.selectionStart,
-                end: menu.selectionEnd,
-              })
-            }
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyVisualFormat(menu.index, "italic", menu.range)}
           >
-            Italic selection
+            Italic
           </button>
           <div className="my-1 border-t border-[var(--line)]" />
           <button

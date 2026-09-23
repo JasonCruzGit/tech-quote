@@ -6,11 +6,18 @@ export interface Client {
   address: string; // e.g. "Municipal Government of Rizal, Palawan"
 }
 
+/** Included accessory/component; optional amount is internal cost and adds to quote total. */
+export interface InclusionLine {
+  label: string;
+  /** Per-unit amount: counts toward unit cost and adds to unit/line total */
+  cost: number;
+}
+
 export interface LineItem {
   id: string;
   title: string; // bold item title, e.g. "ADVANCE DRONE WITH PERIPHERALS"
   specs: string[]; // bullet lines; inline **bold** and *italic* supported
-  inclusions: string[]; // bullet lines under INCLUSION:
+  inclusions: InclusionLine[];
   warranty: string; // e.g. "at least 1 Year Warranty"
   qty: number;
   unit: string; // unit of measure, e.g. "unit", "pcs", "lot"
@@ -20,7 +27,7 @@ export interface LineItem {
   priceManuallySet: boolean; // true once user overrides the suggested price
 
   // Internal costing (gray / editor-only zone)
-  supplierCost: number; // per unit, VAT exclusive
+  supplierCost: number; // main item cost per unit, VAT exclusive
   markupPct: number; // e.g. 0.3 for 30%
 }
 
@@ -56,7 +63,7 @@ export interface CatalogItem {
   id: string;
   title: string;
   specs: string[];
-  inclusions: string[];
+  inclusions: InclusionLine[];
   warranty: string;
   unit: string;
   supplierCost: number;
@@ -156,7 +163,11 @@ export type DocumentStatus =
   | "Approved"
   | "Not applicable";
 
+/** Optional reference files — not part of the standard delivery checklist. */
+export const QUOTATION_RFQ_DOCUMENT_CATEGORY = "Quotations / RFQ" as const;
+
 export const DOCUMENT_CATEGORIES = [
+  QUOTATION_RFQ_DOCUMENT_CATEGORY,
   "Eligibility",
   "Award",
   "Delivery",
@@ -166,6 +177,41 @@ export const DOCUMENT_CATEGORIES = [
 ] as const;
 
 export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+
+export const COMPANY_DOCUMENT_CATEGORIES = [
+  "Permit / License",
+  "Registration",
+  "Insurance",
+  "Policy",
+  "Template",
+  "Certificate",
+  "Other",
+] as const;
+
+export type CompanyDocumentCategory = (typeof COMPANY_DOCUMENT_CATEGORIES)[number];
+
+/** Shared company-wide file with optional expiration tracking */
+export interface CompanyDocument {
+  id: string;
+  name: string;
+  category: CompanyDocumentCategory;
+  /** yyyy-mm-dd; empty when no expiry */
+  expiresOn: string;
+  notes: string;
+  fileName: string;
+  storedName: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CompanyDocumentExpiryStatus =
+  | "none"
+  | "ok"
+  | "warning"
+  | "critical"
+  | "expired";
 
 /** A single required document tracked against a project */
 export interface ProjectDocument {

@@ -147,8 +147,25 @@ function runMigrations(database: Database.Database) {
     updatedAt TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS company_documents (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    expiresOn TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    fileName TEXT NOT NULL DEFAULT '',
+    storedName TEXT NOT NULL DEFAULT '',
+    mimeType TEXT NOT NULL DEFAULT '',
+    fileSize INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_project_documents_projectId
     ON project_documents (projectId);
+
+  CREATE INDEX IF NOT EXISTS idx_company_documents_expiresOn
+    ON company_documents (expiresOn);
 `);
 
   const projectColumns = database
@@ -226,8 +243,6 @@ async function downloadBlobToFile(): Promise<boolean> {
 }
 
 export async function ensureDbReady(): Promise<void> {
-  if (globalThis.__techcentrixDb) return;
-
   if (!globalThis.__techcentrixDbReady) {
     globalThis.__techcentrixDbReady = (async () => {
       ensureDataDir();
@@ -237,11 +252,20 @@ export async function ensureDbReady(): Promise<void> {
       } else {
         copySeedIfNeeded();
       }
-      globalThis.__techcentrixDb = openDatabase();
+      if (!globalThis.__techcentrixDb) {
+        globalThis.__techcentrixDb = openDatabase();
+      } else {
+        runMigrations(globalThis.__techcentrixDb);
+      }
     })();
   }
 
   await globalThis.__techcentrixDbReady;
+
+  // Re-run migrations on warm instances so new tables appear after deploys/HMR.
+  if (globalThis.__techcentrixDb) {
+    runMigrations(globalThis.__techcentrixDb);
+  }
 }
 
 function requireDb(): Database.Database {
@@ -250,6 +274,8 @@ function requireDb(): Database.Database {
     ensureDataDir();
     copySeedIfNeeded();
     globalThis.__techcentrixDb = openDatabase();
+  } else {
+    runMigrations(globalThis.__techcentrixDb);
   }
   return globalThis.__techcentrixDb;
 }

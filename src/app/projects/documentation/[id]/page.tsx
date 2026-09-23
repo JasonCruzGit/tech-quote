@@ -21,9 +21,15 @@ import {
   useDocumentsLoadState,
   useDocumentsSavingStatus,
 } from "@/lib/documentsStore";
-import { useProject, useProjectsLoadState } from "@/lib/projectsStore";
+import {
+  updateProject,
+  useProject,
+  useProjectsLoadState,
+  useProjectsSavingStatus,
+} from "@/lib/projectsStore";
 import {
   DOCUMENT_CATEGORIES,
+  QUOTATION_RFQ_DOCUMENT_CATEGORY,
   type DocumentCategory,
   type ProjectDocument,
 } from "@/lib/types";
@@ -172,8 +178,11 @@ export default function ProjectDocumentationPage() {
   const projectsLoad = useProjectsLoadState();
   const allDocuments = useDocuments();
   const docsLoad = useDocumentsLoadState();
-  const isSaving = useDocumentsSavingStatus();
+  const docsSaving = useDocumentsSavingStatus();
+  const projectsSaving = useProjectsSavingStatus();
+  const isSaving = docsSaving || projectsSaving;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const quotationFileInputRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<DocumentCategory>("Other");
   const [isUploading, setIsUploading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
@@ -187,26 +196,42 @@ export default function ProjectDocumentationPage() {
     [allDocuments, projectId]
   );
 
+  const quotationDocs = useMemo(
+    () => docs.filter((d) => d.category === QUOTATION_RFQ_DOCUMENT_CATEGORY),
+    [docs]
+  );
+
+  const checklistDocs = useMemo(
+    () => docs.filter((d) => d.category !== QUOTATION_RFQ_DOCUMENT_CATEGORY),
+    [docs]
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<DocumentCategory, ProjectDocument[]>();
-    for (const doc of docs) {
+    for (const doc of checklistDocs) {
       const list = map.get(doc.category);
       if (list) list.push(doc);
       else map.set(doc.category, [doc]);
     }
-    return DOCUMENT_CATEGORIES.flatMap((cat) => {
-      const list = map.get(cat);
-      return list ? [[cat, list] as const] : [];
-    });
-  }, [docs]);
+    return DOCUMENT_CATEGORIES.filter((cat) => cat !== QUOTATION_RFQ_DOCUMENT_CATEGORY).flatMap(
+      (cat) => {
+        const list = map.get(cat);
+        return list ? [[cat, list] as const] : [];
+      }
+    );
+  }, [checklistDocs]);
 
-  async function handleFiles(files: FileList | File[] | null, documentId?: string) {
+  async function handleFiles(
+    files: FileList | File[] | null,
+    documentId?: string,
+    uploadCategory?: DocumentCategory
+  ) {
     if (!files || (Array.isArray(files) ? files.length === 0 : files.length === 0)) return;
     const list = Array.from(files);
     setIsUploading(true);
     try {
       await uploadProjectDocuments(projectId, list, {
-        category,
+        category: uploadCategory ?? category,
         documentId,
       });
     } catch (err) {
@@ -247,9 +272,18 @@ export default function ProjectDocumentationPage() {
     );
   }
 
-  const progress = documentProgress(docs);
+  const progress = documentProgress(checklistDocs);
   const isLoading = docsLoad === "idle" || docsLoad === "loading";
   const attachedCount = progress.attached;
+
+  function openQuotationUpload() {
+    quotationFileInputRef.current?.click();
+  }
+
+  function patchProject(partial: Partial<NonNullable<typeof project>>) {
+    if (!project) return;
+    updateProject(project.id, (p) => ({ ...p, ...partial }));
+  }
 
   return (
     <AppShell>
@@ -257,11 +291,32 @@ export default function ProjectDocumentationPage() {
         <div className="ui-page-inner">
           <PageHeader
             eyebrow="Documentation"
-            title={project.name.trim() || "Untitled project"}
+            title={
+              <input
+                value={project.name}
+                onChange={(e) => patchProject({ name: e.target.value })}
+                placeholder="Untitled project"
+                aria-label="Project name"
+                className="ui-input !h-auto !w-full max-w-xl !border-transparent !bg-transparent !px-0 !py-0.5 !text-[1.5rem] !font-semibold !tracking-tight hover:!bg-[var(--surface-hover)] focus:!border-[var(--brand)] focus:!bg-white focus:!px-2"
+              />
+            }
             subtitle={
-              [project.clientName.trim(), project.clientOffice.trim()]
-                .filter(Boolean)
-                .join(" · ") || "Attach papers and certifications for this project."
+              <div className="mt-1 flex max-w-xl flex-wrap gap-2">
+                <input
+                  value={project.clientName}
+                  onChange={(e) => patchProject({ clientName: e.target.value })}
+                  placeholder="Client contact"
+                  aria-label="Client contact"
+                  className="ui-input ui-input-compact min-w-[10rem] flex-1"
+                />
+                <input
+                  value={project.clientOffice}
+                  onChange={(e) => patchProject({ clientOffice: e.target.value })}
+                  placeholder="Client office"
+                  aria-label="Client office"
+                  className="ui-input ui-input-compact min-w-[10rem] flex-1"
+                />
+              </div>
             }
             actions={
               <>
@@ -272,6 +327,15 @@ export default function ProjectDocumentationPage() {
                 <Link href={`/projects/${project.id}`} className="ui-btn ui-btn-ghost">
                   Open project
                 </Link>
+                <button
+                  type="button"
+                  disabled={isUploading}
+                  onClick={openQuotationUpload}
+                  className="ui-btn ui-btn-ghost"
+                >
+                  <UploadIcon size={13} />
+                  Upload Quotation / RFQ
+                </button>
                 <button
                   type="button"
                   disabled={isUploading}
@@ -296,6 +360,51 @@ export default function ProjectDocumentationPage() {
               e.target.value = "";
             }}
           />
+          <input
+            ref={quotationFileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+            onChange={(e) => {
+              void handleFiles(e.target.files, undefined, QUOTATION_RFQ_DOCUMENT_CATEGORY);
+              e.target.value = "";
+            }}
+          />
+
+          <SectionCard
+            className="mb-5"
+            title="Quotations / RFQ"
+            description="Optional — attach the client RFQ, your quotation, or related reference files."
+            headerRight={
+              <button
+                type="button"
+                disabled={isUploading}
+                onClick={openQuotationUpload}
+                className="ui-btn ui-btn-sm ui-btn-ghost"
+              >
+                <UploadIcon size={12} />
+                Upload
+              </button>
+            }
+          >
+            {quotationDocs.length === 0 ? (
+              <p className="text-sm text-[var(--ink-500)]">
+                No quotation or RFQ files yet. Use Upload to attach PDF, Word, Excel, or image files.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {quotationDocs.map((doc) => (
+                  <DocumentCard
+                    key={doc.id}
+                    doc={doc}
+                    uploading={isUploading}
+                    onAttach={(docId, files) => void handleFiles(files, docId)}
+                  />
+                ))}
+              </div>
+            )}
+          </SectionCard>
 
           <div
             onDragOver={(e) => {
@@ -339,15 +448,23 @@ export default function ProjectDocumentationPage() {
               >
                 Browse files
               </button>
+              <button
+                type="button"
+                disabled={isUploading}
+                onClick={openQuotationUpload}
+                className="ui-btn ui-btn-sm ui-btn-ghost"
+              >
+                Upload Quotation / RFQ
+              </button>
             </div>
           </div>
 
-          {docs.length > 0 ? (
+          {checklistDocs.length > 0 ? (
             <div className="mb-5 flex flex-wrap items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-card)]">
               <span className="ui-num text-sm font-semibold text-[var(--ink-800)]">
-                {attachedCount} of {docs.length} with files attached
+                {attachedCount} of {checklistDocs.length} with files attached
               </span>
-              {docs.some((d) => !d.storedName) ? (
+              {checklistDocs.some((d) => !d.storedName) ? (
                 <span className="text-xs text-[var(--ink-500)]">
                   Checklist items still need a file — use Attach on each row.
                 </span>
@@ -355,10 +472,10 @@ export default function ProjectDocumentationPage() {
             </div>
           ) : null}
 
-          {docs.length === 0 ? (
+          {checklistDocs.length === 0 ? (
             <section className="ui-card">
               <EmptyState
-                title={isLoading ? "Loading documents…" : "No documents yet"}
+                title={isLoading ? "Loading documents…" : "No checklist documents yet"}
                 description={
                   isLoading
                     ? undefined
@@ -375,6 +492,15 @@ export default function ProjectDocumentationPage() {
                       >
                         <UploadIcon size={13} />
                         Attach files
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isUploading}
+                        onClick={openQuotationUpload}
+                        className="ui-btn ui-btn-ghost"
+                      >
+                        <UploadIcon size={13} />
+                        Upload Quotation / RFQ
                       </button>
                       <button
                         type="button"

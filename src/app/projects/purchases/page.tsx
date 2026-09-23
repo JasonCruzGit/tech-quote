@@ -12,19 +12,24 @@ import SectionCard from "@/components/ui/SectionCard";
 import StatStrip from "@/components/ui/StatStrip";
 import { SearchInput } from "@/components/ui/Toolbar";
 import {
+  baseUnitPriceFromSuggested,
   computeQuoteTotals,
+  effectiveUnitPrice,
   lineTotalPrice,
   markupAmount,
   marginPct,
   suggestedMarginPct,
   totalCost,
   totalSellingPrice,
+  unitCost,
   unitSellingPrice,
 } from "@/lib/calc";
 import { formatCurrency, formatDateLong, formatPercent } from "@/lib/format";
+import { inclusionsCostTotal } from "@/lib/inclusions";
 import { useProjects, useProjectsLoadState } from "@/lib/projectsStore";
 import { updateQuote, useQuotes, useQuotesLoadState, useSavingStatus } from "@/lib/store";
 import type { LineItem, Project, Quote } from "@/lib/types";
+import InclusionCostLines from "@/components/InclusionCostLines";
 
 interface PurchaseRow {
   project: Project;
@@ -83,10 +88,11 @@ export default function ActualPurchasePage() {
         acc.vat += t.vat;
         acc.grandTotal += t.grandTotal;
         acc.cost += t.totalCost;
+        acc.markup += t.totalMarkup;
         acc.count += 1;
         return acc;
       },
-      { subtotal: 0, vat: 0, grandTotal: 0, cost: 0, count: 0 }
+      { subtotal: 0, vat: 0, grandTotal: 0, cost: 0, markup: 0, count: 0 }
     );
   }, [filtered]);
 
@@ -128,7 +134,7 @@ export default function ActualPurchasePage() {
             stats={[
               { label: "Won projects", value: String(filtered.length) },
               { label: "Supplier cost", value: formatCurrency(totals.cost) },
-              { label: "Subtotal + VAT", value: formatCurrency(totals.subtotal + totals.vat) },
+              { label: "Total markup", value: formatCurrency(totals.markup) },
               { label: "Final total", value: formatCurrency(totals.grandTotal) },
             ]}
           />
@@ -141,12 +147,13 @@ export default function ActualPurchasePage() {
               </span>
             </div>
             <div className="ui-table-scroll">
-              <table className="ui-table ui-table-fixed min-w-[1096px]">
+              <table className="ui-table ui-table-fixed min-w-[1220px]">
                 <colgroup>
                   <col className="w-[228px]" />
                   <col className="w-[104px]" />
                   <col className="w-[196px]" />
                   <col className="w-[124px]" />
+                  <col className="w-[120px]" />
                   <col className="w-[120px]" />
                   <col className="w-[104px]" />
                   <col className="w-[124px]" />
@@ -159,6 +166,7 @@ export default function ActualPurchasePage() {
                     <th>Quote #</th>
                     <th>Client</th>
                     <th className="ui-num-cell">Supplier Cost</th>
+                    <th className="ui-num-cell">Markup</th>
                     <th className="ui-num-cell">Subtotal</th>
                     <th className="ui-num-cell">VAT</th>
                     <th className="ui-num-cell">Final Price</th>
@@ -192,7 +200,7 @@ export default function ActualPurchasePage() {
                   })}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="!h-auto !p-0">
+                      <td colSpan={10} className="!h-auto !p-0">
                         <EmptyState
                           title={
                             loading
@@ -252,6 +260,8 @@ function PurchaseItemForm({
   const usp = unitSellingPrice(item);
   const suggestedMargin = suggestedMarginPct(item);
   const actualMargin = marginPct(item);
+  const inclTotal = inclusionsCostTotal(item.inclusions);
+  const sellUnit = effectiveUnitPrice(item);
 
   function patch(partial: Partial<LineItem>) {
     onPatchItem(quoteId, item.id, partial);
@@ -292,6 +302,11 @@ function PurchaseItemForm({
             <div className="ui-input-readonly tabular-nums !font-semibold">
               {formatCurrency(lineTotalPrice(item))}
             </div>
+            {inclTotal > 0 ? (
+              <p className="mt-1 text-xs text-[var(--ink-400)]">
+                {formatCurrency(item.unitPrice)} + {formatCurrency(inclTotal)} inclusions
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -327,7 +342,7 @@ function PurchaseItemForm({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="ui-label" htmlFor={`cost-${item.id}`}>
-                  Supplier Cost (VAT exclusive)
+                  Supplier cost (main, VAT exclusive)
                 </label>
                 <input
                   id={`cost-${item.id}`}
@@ -351,13 +366,34 @@ function PurchaseItemForm({
               </div>
             </div>
 
+            <InclusionCostLines
+              inclusions={item.inclusions}
+              onChangeCost={(index, cost) => {
+                const inclusions = item.inclusions.map((inc, i) =>
+                  i === index ? { ...inc, cost } : inc
+                );
+                patch({ inclusions });
+              }}
+            />
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
+                <label className="ui-label">Unit cost (main + inclusions)</label>
+                <div className="ui-input-readonly tabular-nums">
+                  {formatCurrency(unitCost(item))}
+                </div>
+              </div>
+              <div>
                 <label className="ui-label">Unit Selling Price</label>
-                <div className="ui-input-readonly tabular-nums">{formatCurrency(usp)}</div>
+                <div className="ui-input-readonly tabular-nums">{formatCurrency(sellUnit)}</div>
                 <button
                   type="button"
-                  onClick={() => patch({ unitPrice: usp, priceManuallySet: true })}
+                  onClick={() =>
+                    patch({
+                      unitPrice: baseUnitPriceFromSuggested(item),
+                      priceManuallySet: true,
+                    })
+                  }
                   className="mt-1.5 text-xs font-semibold text-[var(--brand)] hover:underline"
                 >
                   Apply as unit price
@@ -445,6 +481,7 @@ function FragmentRow({
           {client}
         </td>
         <td className="ui-num-cell">{totals ? formatCurrency(totals.totalCost) : "—"}</td>
+        <td className="ui-num-cell">{totals ? formatCurrency(totals.totalMarkup) : "—"}</td>
         <td className="ui-num-cell">{totals ? formatCurrency(totals.subtotal) : "—"}</td>
         <td className="ui-num-cell">{totals ? formatCurrency(totals.vat) : "—"}</td>
         <td className="ui-num-cell ui-cell-strong">
@@ -485,7 +522,7 @@ function FragmentRow({
       </tr>
       {isOpen && quote && (
         <tr className="bg-[var(--canvas)] hover:!bg-[var(--canvas)]">
-          <td colSpan={9} className="!px-5 !py-5">
+          <td colSpan={10} className="!px-5 !py-5">
             <SectionCard
               title="Item pricing form"
               description="Update unit price and internal costing for each item. Totals recalculate and save automatically."
@@ -509,11 +546,17 @@ function FragmentRow({
 
                 {totals && quote.items.length > 0 && (
                   <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-sub)] px-4 py-3.5">
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
                       <div>
                         <p className="ui-eyebrow">Supplier cost</p>
                         <p className="ui-num mt-1 font-bold text-[var(--ink-900)]">
                           {formatCurrency(totals.totalCost)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="ui-eyebrow">Total markup</p>
+                        <p className="ui-num mt-1 font-bold text-[var(--ink-900)]">
+                          {formatCurrency(totals.totalMarkup)}
                         </p>
                       </div>
                       <div>

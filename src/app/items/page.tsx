@@ -18,7 +18,7 @@ import {
   useCatalogItems,
   useCatalogItemsLoadState,
 } from "@/lib/itemsStore";
-import { suggestedMarginPct, unitSellingPrice } from "@/lib/calc";
+import { suggestedMarginPct, effectiveUnitPrice, unitSellingPrice } from "@/lib/calc";
 import { useTableSort } from "@/lib/useTableSort";
 
 type ItemSortKey = "title" | "unit" | "supplierCost" | "margin" | "price";
@@ -41,7 +41,11 @@ export default function ItemsPage() {
   }, [items, query]);
 
   const rows = useMemo(
-    () => filtered.map((item) => ({ item, price: item.unitPrice || unitSellingPrice(item) })),
+    () =>
+      filtered.map((item) => ({
+        item,
+        price: item.unitPrice ? effectiveUnitPrice(item) : unitSellingPrice(item),
+      })),
     [filtered]
   );
 
@@ -65,12 +69,14 @@ export default function ItemsPage() {
   );
 
   const stats: Stat[] = useMemo(() => {
-    const priced = items.filter((i) => (i.unitPrice || unitSellingPrice(i)) > 0);
+    const priced = items.filter((i) => (i.unitPrice ? effectiveUnitPrice(i) : unitSellingPrice(i)) > 0);
     const avgPrice =
       priced.length === 0
         ? 0
-        : priced.reduce((sum, i) => sum + (i.unitPrice || unitSellingPrice(i)), 0) /
-          priced.length;
+        : priced.reduce(
+            (sum, i) => sum + (i.unitPrice ? effectiveUnitPrice(i) : unitSellingPrice(i)),
+            0
+          ) / priced.length;
     const avgMargin =
       priced.length === 0
         ? 0

@@ -1054,19 +1054,39 @@ body {
   color: #a8b4be;
 }
 
-/* ==========================================================================
-   Print
-   ========================================================================== */
+/* Contenteditable description lines — visual bold/italic, no markdown markers */
+.rich-line {
+  word-break: break-word;
+}
+
+.rich-line strong,
+.rich-line b {
+  font-weight: 700;
+}
+
+.rich-line em,
+.rich-line i {
+  font-style: italic;
+}
+
+.rich-line:empty:before,
+.rich-line[data-empty="true"]:before {
+  content: attr(data-placeholder);
+  color: var(--ink-300);
+  pointer-events: none;
+}
 
 @media print {
   @page {
     size: A4;
-    margin: 8mm;
+    margin: 0;
   }
 
   html,
   body {
     background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .no-print {
@@ -1077,8 +1097,9 @@ body {
   .print-page {
     box-shadow: none !important;
     margin: 0 !important;
+    padding: 0 !important;
     border-radius: 0 !important;
-    width: auto !important;
+    width: 100% !important;
     max-width: none !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

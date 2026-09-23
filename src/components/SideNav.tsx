@@ -127,6 +127,38 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Company",
+    items: [
+      {
+        href: "/company/documents",
+        label: "Company Documents",
+        match: (path) => path.startsWith("/company/documents"),
+        icon: (
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <path
+              d="M3.5 3.5h5.5L12.5 6.5V13a1 1 0 01-1 1h-8a1 1 0 01-1-1v-8.5a1 1 0 011-1z"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M9 3.7V6.5H11.8"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M5 9.5h6M5 11.5h4"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+            />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
     label: "Procurement",
     items: [
       {

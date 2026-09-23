@@ -1,4 +1,5 @@
 import type { CatalogItem } from "@/lib/types";
+import { normalizeInclusions } from "@/lib/inclusions";
 import db, { schedulePersist } from "./db";
 
 interface CatalogItemRow {
@@ -20,7 +21,7 @@ function rowToItem(row: CatalogItemRow): CatalogItem {
     id: row.id,
     title: row.title,
     specs: JSON.parse(row.specs),
-    inclusions: JSON.parse(row.inclusions),
+    inclusions: normalizeInclusions(JSON.parse(row.inclusions)),
     warranty: row.warranty,
     unit: row.unit,
     supplierCost: row.supplierCost,

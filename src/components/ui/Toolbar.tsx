@@ -46,11 +46,19 @@ export function FilterButton({
   );
 }
 
-export function ExportButton({ onClick }: { onClick: () => void }) {
+export function ExportButton({
+  onClick,
+  label = "Export CSV",
+  title,
+}: {
+  onClick: () => void;
+  label?: string;
+  title?: string;
+}) {
   return (
-    <button type="button" onClick={onClick} className="ui-btn ui-btn-ghost">
+    <button type="button" onClick={onClick} className="ui-btn ui-btn-ghost" title={title}>
       <DownloadIcon size={13} />
-      Export CSV
+      {label}
     </button>
   );
 }
@@ -59,10 +67,13 @@ export function ImportButton({
   onFile,
   disabled,
   busyLabel = "Importing…",
+  onDownloadTemplate,
 }: {
   onFile: (file: File) => void;
   disabled?: boolean;
   busyLabel?: string;
+  /** Optional: download a blank CSV template matching the import format */
+  onDownloadTemplate?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -79,15 +90,29 @@ export function ImportButton({
           e.target.value = "";
         }}
       />
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => inputRef.current?.click()}
-        className="ui-btn ui-btn-ghost"
-      >
-        <UploadIcon size={13} />
-        {disabled ? busyLabel : "Import Excel"}
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => inputRef.current?.click()}
+          className="ui-btn ui-btn-ghost"
+          title="Import .xlsx, .xls, or .csv"
+        >
+          <UploadIcon size={13} />
+          {disabled ? busyLabel : "Import Excel"}
+        </button>
+        {onDownloadTemplate ? (
+          <button
+            type="button"
+            onClick={onDownloadTemplate}
+            className="ui-btn ui-btn-ghost !px-2"
+            title="Download import template"
+            aria-label="Download import template"
+          >
+            <DownloadIcon size={13} />
+          </button>
+        ) : null}
+      </div>
     </>
   );
 }
@@ -128,7 +153,7 @@ export function FilterChips<T extends string>({
   counts?: Record<string, number>;
 }) {
   return (
-    <div className="mb-4 flex flex-wrap gap-1.5">
+    <div className="mb-4 flex flex-wrap items-center gap-1.5">
       {options.map((option) => {
         const active = option === value;
         return (

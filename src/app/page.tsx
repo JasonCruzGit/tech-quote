@@ -21,7 +21,13 @@ import {
 } from "@/components/ui/Toolbar";
 import { computeQuoteTotals } from "@/lib/calc";
 import { formatCurrency, formatDateLong } from "@/lib/format";
-import { parseQuoteSpreadsheet } from "@/lib/quoteImport";
+import {
+  downloadCsv,
+  downloadQuoteImportTemplate,
+  parseQuoteSpreadsheet,
+  QUOTE_IMPORT_HEADERS,
+} from "@/lib/quoteImport";
+import { inclusionLabels } from "@/lib/inclusions";
 import {
   createQuote,
   deleteQuote,
@@ -59,40 +65,38 @@ function itemsSummary(quote: Quote): string {
   return `${first} +${quote.items.length - 1} more`;
 }
 
+/** One row per line item so the file can be re-imported. */
 function exportCsv(quotes: Quote[]) {
-  const headers = [
-    "Quotation No",
-    "Customer Name",
-    "Office",
-    "Address",
-    "Items",
-    "Quotation By",
-    "Date",
-    "Status",
-    "Amount",
-  ];
-  const rows = quotes.map((q) => {
-    const totals = computeQuoteTotals(q);
-    return [
-      q.quoteNumber,
-      q.client.name,
-      q.client.office,
-      q.client.address,
-      itemsSummary(q),
-      q.preparedBy.name,
-      q.date,
-      q.status,
-      String(totals.grandTotal),
-    ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`);
-  });
-  const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `quotations-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  const rows: string[][] = [];
+  for (const q of quotes) {
+    const items = q.items.length > 0 ? q.items : [null];
+    for (const item of items) {
+      rows.push([
+        q.quoteNumber,
+        q.client.name,
+        q.client.office,
+        q.client.address,
+        q.date,
+        q.status,
+        q.preparedBy.name,
+        q.preparedBy.title,
+        item?.title ?? "",
+        item ? String(item.qty) : "",
+        item?.unit ?? "",
+        item ? String(item.unitPrice) : "",
+        item ? String(item.supplierCost) : "",
+        item ? String(item.markupPct * 100) : "",
+        item?.specs.join("\n") ?? "",
+        item ? inclusionLabels(item.inclusions).join("\n") : "",
+        item?.warranty ?? "",
+      ]);
+    }
+  }
+  downloadCsv(
+    `quotations-${new Date().toISOString().slice(0, 10)}.csv`,
+    QUOTE_IMPORT_HEADERS,
+    rows
+  );
 }
 
 export default function DashboardPage() {
@@ -251,6 +255,24 @@ export default function DashboardPage() {
     }
   }
 
+  function handleDeleteSelected() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const label =
+      ids.length === 1
+        ? "1 selected quotation"
+        : `${ids.length} selected quotations`;
+    if (
+      !window.confirm(
+        `Delete ${label}? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    for (const id of ids) deleteQuote(id);
+    setSelected(new Set());
+  }
+
   async function handleMarkWon(quote: Quote) {
     setMarkingWonId(quote.id);
     try {
@@ -326,8 +348,19 @@ export default function DashboardPage() {
               active={showFilters || statusFilter !== "All"}
               onClick={() => setShowFilters((v) => !v)}
             />
-            <ExportButton onClick={handleExport} />
-            <ImportButton onFile={handleImport} disabled={isImporting} />
+            <ExportButton
+              onClick={handleExport}
+              title={
+                selected.size > 0
+                  ? `Export ${selected.size} selected quotation(s)`
+                  : "Export filtered quotations (re-importable CSV)"
+              }
+            />
+            <ImportButton
+              onFile={handleImport}
+              disabled={isImporting}
+              onDownloadTemplate={downloadQuoteImportTemplate}
+            />
             <CreateButton
               onClick={handleNewQuote}
               disabled={isCreating}
@@ -349,14 +382,25 @@ export default function DashboardPage() {
           ) : null
         }
         cardMeta={
-          <span className="ui-num text-xs text-[var(--ink-500)]">
-            {filtered.length} record{filtered.length === 1 ? "" : "s"}
+          <div className="flex items-center gap-2">
+            <span className="ui-num text-xs text-[var(--ink-500)]">
+              {filtered.length} record{filtered.length === 1 ? "" : "s"}
+              {selected.size > 0 ? (
+                <span className="ml-2 font-semibold text-[var(--brand)]">
+                  {selected.size} selected
+                </span>
+              ) : null}
+            </span>
             {selected.size > 0 ? (
-              <span className="ml-2 font-semibold text-[var(--brand)]">
-                {selected.size} selected
-              </span>
+              <button
+                type="button"
+                onClick={handleDeleteSelected}
+                className="ui-btn ui-btn-sm ui-btn-danger"
+              >
+                Delete selected
+              </button>
             ) : null}
-          </span>
+          </div>
         }
       >
         <div className="ui-table-scroll">

@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import BulletListEditor from "@/components/BulletListEditor";
+import InclusionCostLines from "@/components/InclusionCostLines";
+import InclusionListEditor from "@/components/InclusionListEditor";
 import { ChevronDownIcon } from "@/components/ui/Icons";
 import {
+  baseUnitPriceFromSuggested,
+  effectiveUnitPrice,
   lineTotalPrice,
-  markupAmount,
   marginPct,
   suggestedMarginPct,
   totalCost,
   totalSellingPrice,
+  unitCost,
   unitSellingPrice,
 } from "@/lib/calc";
 import { formatCurrency, formatPercent } from "@/lib/format";
+import { inclusionsCostTotal } from "@/lib/inclusions";
 import type { LineItem } from "@/lib/types";
 
 interface LineItemCardProps {
@@ -82,6 +87,8 @@ export default function LineItemCard({
   const suggestedMargin = suggestedMarginPct(item);
   const actualMargin = marginPct(item);
   const total = lineTotalPrice(item);
+  const inclTotal = inclusionsCostTotal(item.inclusions);
+  const sellUnit = effectiveUnitPrice(item);
 
   return (
     <article className="overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface)] shadow-[var(--shadow-card)]">
@@ -198,6 +205,11 @@ export default function LineItemCard({
           <div>
             <label className="ui-label">Total price</label>
             <div className="ui-input-readonly ui-input-compact tabular-nums">{formatCurrency(total)}</div>
+            {inclTotal > 0 ? (
+              <p className="mt-0.5 text-[10px] text-[var(--ink-400)]">
+                {formatCurrency(item.unitPrice)} + {formatCurrency(inclTotal)} inclusions
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -215,7 +227,7 @@ export default function LineItemCard({
           <div className="space-y-4">
             <div>
               <label className="ui-label">Inclusions</label>
-              <BulletListEditor
+              <InclusionListEditor
                 items={item.inclusions}
                 onChange={(inclusions) => onChange({ inclusions })}
                 placeholder="Included item"
@@ -264,7 +276,7 @@ export default function LineItemCard({
           <div className="space-y-3 border-t border-[var(--line)] px-4 pt-3 pb-4">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
               <div>
-                <label className="ui-label">Supplier cost</label>
+                <label className="ui-label">Supplier cost (main)</label>
                 <input
                   {...numberInputProps(item.supplierCost, (supplierCost) => onChange({ supplierCost }))}
                   className="ui-input ui-input-compact tabular-nums"
@@ -279,17 +291,33 @@ export default function LineItemCard({
               </div>
               <button
                 type="button"
-                onClick={() => onChange({ unitPrice: usp, priceManuallySet: true })}
+                onClick={() =>
+                  onChange({
+                    unitPrice: baseUnitPriceFromSuggested(item),
+                    priceManuallySet: true,
+                  })
+                }
                 className="ui-btn ui-btn-sm ui-btn-ghost h-8 whitespace-nowrap"
               >
                 Apply unit price
               </button>
             </div>
 
+            <InclusionCostLines
+              inclusions={item.inclusions}
+              compact
+              onChangeCost={(index, cost) => {
+                const inclusions = item.inclusions.map((inc, i) =>
+                  i === index ? { ...inc, cost } : inc
+                );
+                onChange({ inclusions });
+              }}
+            />
+
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <CostStat label="Unit selling" value={formatCurrency(usp)} />
+              <CostStat label="Unit cost" value={formatCurrency(unitCost(item))} />
+              <CostStat label="Unit selling" value={formatCurrency(sellUnit)} />
               <CostStat label="Total cost" value={formatCurrency(totalCost(item))} />
-              <CostStat label="Markup" value={formatCurrency(markupAmount(item))} />
               <CostStat
                 label="Actual margin"
                 value={formatPercent(actualMargin)}
@@ -299,8 +327,9 @@ export default function LineItemCard({
             </div>
 
             <p className="text-[11px] text-[var(--ink-400)]">
-              Suggested margin at current markup: {formatPercent(suggestedMargin)} · Total selling:{" "}
-              {formatCurrency(totalSellingPrice(item))}
+              Suggested at markup: {formatCurrency(usp)} ({formatPercent(suggestedMargin)} margin)
+              {inclTotal > 0 ? ` · Inclusions add ${formatCurrency(inclTotal)} to total` : ""} ·{" "}
+              Total selling (markup): {formatCurrency(totalSellingPrice(item))}
             </p>
           </div>
         )}

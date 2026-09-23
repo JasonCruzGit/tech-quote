@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { todayIso } from "@/lib/format";
 import { generateId, generateQuoteNumber } from "@/lib/id";
+import { splitInclusionLines } from "@/lib/inclusions";
 import type { QuoteImportRow } from "@/lib/quoteImport";
 import { insertQuote, listQuoteNumbers } from "@/lib/server/quotesRepo";
 import type { LineItem, Quote, QuoteStatus } from "@/lib/types";
@@ -27,7 +28,7 @@ function buildLineItem(row: QuoteImportRow["items"][number]): LineItem {
     id: generateId(),
     title: row.title.trim() || "Untitled item",
     specs: splitLines(row.specs),
-    inclusions: splitLines(row.inclusions),
+    inclusions: splitInclusionLines(row.inclusions ?? ""),
     warranty: row.warranty?.trim() ?? "",
     qty: row.qty && row.qty > 0 ? row.qty : 1,
     unit: row.unit?.trim() || "unit",

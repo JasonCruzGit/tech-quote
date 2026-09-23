@@ -1,5 +1,6 @@
 import { buildSampleQuote } from "@/lib/sampleData";
-import type { Client, Quote } from "@/lib/types";
+import type { Client, LineItem, Quote } from "@/lib/types";
+import { normalizeInclusions } from "@/lib/inclusions";
 import db, { schedulePersist } from "./db";
 
 interface QuoteRow {
@@ -16,7 +17,15 @@ interface QuoteRow {
   updatedAt: string;
 }
 
+function normalizeLineItem(raw: LineItem): LineItem {
+  return {
+    ...raw,
+    inclusions: normalizeInclusions(raw.inclusions),
+  };
+}
+
 function rowToQuote(row: QuoteRow): Quote {
+  const items = (JSON.parse(row.items) as LineItem[]).map(normalizeLineItem);
   return {
     id: row.id,
     quoteNumber: row.quoteNumber,
@@ -24,7 +33,7 @@ function rowToQuote(row: QuoteRow): Quote {
     status: row.status as Quote["status"],
     vatPct: row.vatPct,
     client: JSON.parse(row.client),
-    items: JSON.parse(row.items),
+    items,
     terms: JSON.parse(row.terms),
     preparedBy: JSON.parse(row.preparedBy),
     createdAt: row.createdAt,

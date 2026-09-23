@@ -40,6 +40,9 @@ function breadcrumbs(pathname: string): Crumb[] {
   if (pathname.startsWith("/projects/documentation")) {
     return [{ label: "Projects", href: "/" }, { label: "Documentation" }];
   }
+  if (pathname.startsWith("/company/documents")) {
+    return [{ label: "Company", href: "/company/documents" }, { label: "Company Documents" }];
+  }
   if (pathname.startsWith("/projects/purchases")) {
     return [
       { label: "Projects", href: "/" },

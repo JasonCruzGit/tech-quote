@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import BulletListEditor from "@/components/BulletListEditor";
+import InclusionCostLines from "@/components/InclusionCostLines";
+import InclusionListEditor from "@/components/InclusionListEditor";
 import PageHeader from "@/components/ui/PageHeader";
 import RecordNotFound from "@/components/ui/RecordNotFound";
 import SaveIndicator from "@/components/ui/SaveIndicator";
 import SectionCard from "@/components/ui/SectionCard";
-import { suggestedMarginPct, unitSellingPrice } from "@/lib/calc";
+import { baseUnitPriceFromSuggested, effectiveUnitPrice, suggestedMarginPct, unitCost, unitSellingPrice } from "@/lib/calc";
 import { formatCurrency, formatPercent } from "@/lib/format";
+import { inclusionsCostTotal } from "@/lib/inclusions";
 import {
   deleteCatalogItem,
   updateCatalogItem,
@@ -63,6 +66,8 @@ export default function ItemEditorPage() {
 
   const usp = unitSellingPrice(current);
   const suggested = suggestedMarginPct(current);
+  const inclTotal = inclusionsCostTotal(current.inclusions);
+  const sellUnit = effectiveUnitPrice(current);
 
   return (
     <AppShell>
@@ -109,7 +114,7 @@ export default function ItemEditorPage() {
               <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                 <div>
                   <label className="ui-label">Inclusions</label>
-                  <BulletListEditor
+                  <InclusionListEditor
                     items={current.inclusions}
                     onChange={(inclusions) => patch({ inclusions })}
                     placeholder="Included item"
@@ -147,7 +152,7 @@ export default function ItemEditorPage() {
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="ui-label">Supplier cost (VAT exclusive)</label>
+                  <label className="ui-label">Supplier cost (main, VAT exclusive)</label>
                   <input
                     {...numberInputProps(current.supplierCost, (supplierCost) =>
                       patch({ supplierCost })
@@ -164,19 +169,36 @@ export default function ItemEditorPage() {
                     className="ui-input ui-num"
                   />
                 </div>
+                <div className="sm:col-span-2">
+                  <InclusionCostLines
+                    inclusions={current.inclusions}
+                    onChangeCost={(index, cost) => {
+                      const inclusions = current.inclusions.map((inc, i) =>
+                        i === index ? { ...inc, cost } : inc
+                      );
+                      patch({ inclusions });
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="ui-label">Unit cost (main + inclusions)</label>
+                  <div className="ui-input-readonly ui-num">
+                    {formatCurrency(unitCost(current))}
+                  </div>
+                </div>
                 <div>
                   <label className="ui-label">Suggested unit selling</label>
                   <div className="ui-input-readonly ui-num">{formatCurrency(usp)}</div>
                   <button
                     type="button"
-                    onClick={() => patch({ unitPrice: usp })}
+                    onClick={() => patch({ unitPrice: baseUnitPriceFromSuggested(current) })}
                     className="mt-1.5 text-xs font-semibold text-[var(--brand)] hover:underline"
                   >
                     Apply as unit price
                   </button>
                 </div>
                 <div>
-                  <label className="ui-label">Unit price</label>
+                  <label className="ui-label">Unit price (base)</label>
                   <input
                     {...numberInputProps(current.unitPrice, (unitPrice) =>
                       patch({ unitPrice })
@@ -184,7 +206,9 @@ export default function ItemEditorPage() {
                     className="ui-input ui-num !font-semibold"
                   />
                   <p className="mt-1.5 text-xs text-[var(--ink-400)]">
-                    Suggested margin {formatPercent(suggested)}
+                    Quote total: {formatCurrency(sellUnit)}
+                    {inclTotal > 0 ? ` (${formatCurrency(inclTotal)} inclusions)` : ""} · Suggested
+                    margin {formatPercent(suggested)}
                   </p>
                 </div>
               </div>

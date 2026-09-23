@@ -1,34 +1,74 @@
 import type { LineItem, Quote } from "./types";
+import { inclusionsCostTotal } from "./inclusions";
 
-export function unitSellingPrice(item: Pick<LineItem, "supplierCost" | "markupPct">): number {
-  return item.supplierCost * (1 + item.markupPct);
+/** Main supplier cost + priced inclusion costs (per unit). */
+export function unitCost(
+  item: Pick<LineItem, "supplierCost" | "inclusions">
+): number {
+  return (item.supplierCost || 0) + inclusionsCostTotal(item.inclusions ?? []);
 }
 
-export function totalCost(item: Pick<LineItem, "supplierCost" | "qty">): number {
-  return item.supplierCost * item.qty;
+/** Client-facing unit price including priced inclusions. */
+export function effectiveUnitPrice(
+  item: Pick<LineItem, "unitPrice" | "inclusions">
+): number {
+  return (item.unitPrice || 0) + inclusionsCostTotal(item.inclusions ?? []);
 }
 
-export function totalSellingPrice(item: Pick<LineItem, "supplierCost" | "markupPct" | "qty">): number {
+export function unitSellingPrice(
+  item: Pick<LineItem, "supplierCost" | "markupPct" | "inclusions">
+): number {
+  return unitCost(item) * (1 + item.markupPct);
+}
+
+export function totalCost(
+  item: Pick<LineItem, "supplierCost" | "qty" | "inclusions">
+): number {
+  return unitCost(item) * item.qty;
+}
+
+export function totalSellingPrice(
+  item: Pick<LineItem, "supplierCost" | "markupPct" | "qty" | "inclusions">
+): number {
   return unitSellingPrice(item) * item.qty;
 }
 
-export function lineTotalPrice(item: Pick<LineItem, "unitPrice" | "qty">): number {
-  return item.unitPrice * item.qty;
+export function lineTotalPrice(
+  item: Pick<LineItem, "unitPrice" | "qty" | "inclusions">
+): number {
+  return effectiveUnitPrice(item) * item.qty;
 }
 
-export function markupAmount(item: Pick<LineItem, "unitPrice" | "supplierCost" | "qty">): number {
-  return (item.unitPrice - item.supplierCost) * item.qty;
+export function markupAmount(
+  item: Pick<LineItem, "unitPrice" | "supplierCost" | "qty" | "inclusions">
+): number {
+  return (effectiveUnitPrice(item) - unitCost(item)) * item.qty;
 }
 
-export function marginPct(item: Pick<LineItem, "unitPrice" | "supplierCost">): number {
-  if (!item.unitPrice) return 0;
-  return (item.unitPrice - item.supplierCost) / item.unitPrice;
+export function marginPct(
+  item: Pick<LineItem, "unitPrice" | "supplierCost" | "inclusions">
+): number {
+  const sell = effectiveUnitPrice(item);
+  if (!sell) return 0;
+  return (sell - unitCost(item)) / sell;
 }
 
-export function suggestedMarginPct(item: Pick<LineItem, "supplierCost" | "markupPct">): number {
+export function suggestedMarginPct(
+  item: Pick<LineItem, "supplierCost" | "markupPct" | "inclusions">
+): number {
   const usp = unitSellingPrice(item);
   if (!usp) return 0;
-  return (usp - item.supplierCost) / usp;
+  return (usp - unitCost(item)) / usp;
+}
+
+/**
+ * Base unit price to store so that base + inclusion amounts = suggested USP.
+ * Keeps inclusion amounts as add-ons on the quote total.
+ */
+export function baseUnitPriceFromSuggested(
+  item: Pick<LineItem, "supplierCost" | "markupPct" | "inclusions">
+): number {
+  return Math.max(0, unitSellingPrice(item) - inclusionsCostTotal(item.inclusions ?? []));
 }
 
 export interface QuoteTotals {

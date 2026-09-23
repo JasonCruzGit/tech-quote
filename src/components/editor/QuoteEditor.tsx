@@ -245,8 +245,18 @@ export default function QuoteEditor({ quote }: QuoteEditorProps) {
                       </span>
                     </div>
                     <div className="mt-1.5 flex justify-between text-xs text-[var(--ink-600)]">
+                      <span>Total markup</span>
+                      <span className="ui-num font-semibold">
+                        {formatCurrency(totals.totalMarkup)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex justify-between text-xs text-[var(--ink-600)]">
                       <span>Overall margin</span>
-                      <span className="ui-num font-semibold text-[var(--ok)]">
+                      <span
+                        className={`ui-num font-semibold ${
+                          totals.overallMarginPct >= 0 ? "text-[var(--ok)]" : "text-[var(--danger)]"
+                        }`}
+                      >
                         {formatPercent(totals.overallMarginPct)}
                       </span>
                     </div>

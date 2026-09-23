@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import AppShell from "@/components/AppShell";
 import EmptyState from "@/components/ui/EmptyState";
@@ -8,9 +9,9 @@ import ListPageChrome from "@/components/ui/ListPageChrome";
 import SortableTh from "@/components/ui/SortableTh";
 import StatStrip, { type Stat } from "@/components/ui/StatStrip";
 import { ProjectStatusBadge } from "@/components/ui/StatusBadge";
-import { SearchInput } from "@/components/ui/Toolbar";
+import { CreateButton, SearchInput } from "@/components/ui/Toolbar";
 import { documentProgress, useDocuments, useDocumentsLoadState } from "@/lib/documentsStore";
-import { useProjects, useProjectsLoadState } from "@/lib/projectsStore";
+import { createProject, useProjects, useProjectsLoadState } from "@/lib/projectsStore";
 import { progressColor, progressFillStyle } from "@/lib/progress";
 import { useTableSort } from "@/lib/useTableSort";
 
@@ -21,7 +22,9 @@ export default function DocumentationPage() {
   const documents = useDocuments();
   const projectsLoad = useProjectsLoadState();
   const docsLoad = useDocumentsLoadState();
+  const router = useRouter();
   const [query, setQuery] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const byProject = useMemo(() => {
     const map = new Map<string, typeof documents>();
@@ -99,6 +102,19 @@ export default function DocumentationPage() {
     docsLoad === "idle" ||
     docsLoad === "loading";
 
+  async function handleAddProject() {
+    setIsCreating(true);
+    try {
+      const project = await createProject();
+      router.push(`/projects/documentation/${project.id}`);
+    } catch (err) {
+      console.error(err);
+      window.alert("Failed to create project. Please try again.");
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
   return (
     <AppShell>
       <ListPageChrome
@@ -106,7 +122,14 @@ export default function DocumentationPage() {
         description="Attach papers and certifications required for each project."
         stats={<StatStrip stats={stats} />}
         toolbar={
-          <SearchInput value={query} onChange={setQuery} placeholder="Search projects" />
+          <>
+            <SearchInput value={query} onChange={setQuery} placeholder="Search projects" />
+            <CreateButton
+              onClick={handleAddProject}
+              disabled={isCreating}
+              label="New Project"
+            />
+          </>
         }
         cardMeta={
           <span className="ui-num text-xs text-[var(--ink-500)]">
@@ -243,7 +266,18 @@ export default function DocumentationPage() {
                       description={
                         isLoading
                           ? undefined
-                          : "Projects appear here once a quotation is won or a bid is awarded."
+                          : query.trim()
+                            ? "Try a different search term."
+                            : "Create a project with New Project, or win a quotation to track documents here."
+                      }
+                      action={
+                        !isLoading && !query.trim() ? (
+                          <CreateButton
+                            onClick={handleAddProject}
+                            disabled={isCreating}
+                            label="New Project"
+                          />
+                        ) : undefined
                       }
                     />
                   </td>
